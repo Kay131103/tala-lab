@@ -173,11 +173,36 @@ const HAND_SVG = `
 
 let lastGestureShown = "";
 
+const STAGE_HTML = `
+  <div class="hand-stage" id="handStage">
+    <div class="hand-palm" id="handBase">🤚</div>
+    <div class="hand-striker" id="handStriker">✋</div>
+    <div class="hand-count-pop" id="countPop"></div>
+  </div>`;
+
 function buildHandPanel() {
   const host = $("handSvgWrap");
   if (host.dataset.built) return;
-  host.innerHTML = HAND_SVG;
+  host.innerHTML = STAGE_HTML;
   host.dataset.built = "1";
+}
+
+function popCount(text) {
+  const pop = document.getElementById("countPop");
+  if (!pop) return;
+  pop.textContent = text;
+  pop.classList.remove("show");
+  void pop.offsetWidth;
+  pop.classList.add("show");
+}
+
+function strikeStriker(cls, ms) {
+  const striker = document.getElementById("handStriker");
+  if (!striker) return;
+  striker.classList.remove("strike", "flip", "tap");
+  void striker.offsetWidth;
+  striker.classList.add(cls);
+  setTimeout(() => striker.classList.remove(cls), ms);
 }
 
 function clearHandAnim() {
@@ -227,31 +252,33 @@ function animateHand(gesture, aksharaIdx) {
     countBig.textContent = "👏";
     countBig.className = "hand-count clap pop";
     setTimeout(() => countBig.classList.remove("pop"), 150);
-    strikeHand();
+    strikeStriker("strike", 260);
+    popCount("ta");
   } else if (gesture.startsWith("count")) {
     const num = gesture.split(" ")[1];
     angaBig.textContent = "LAGHU";
-    $("handDesc").textContent = "count the fingers";
+    $("handDesc").textContent = "count the fingers on the palm";
     countBig.textContent = num;
     countBig.className = "hand-count pop";
     setTimeout(() => countBig.classList.remove("pop"), 150);
-    const posInAnga = (tala.aksharas[aksharaIdx % tala.total].indexInAnga);
-    const finger = ((posInAnga - 1) % 4) + 1;
-    tapFinger(String(finger));
+    strikeStriker("tap", 240);
+    popCount(num);
   } else if (gesture.startsWith("wave")) {
     angaBig.textContent = "DRUTHAM";
     $("handDesc").textContent = "flip and strike the back (venu)";
     countBig.textContent = "👋";
     countBig.className = "hand-count wave pop";
     setTimeout(() => countBig.classList.remove("pop"), 160);
-    flipHand();
+    strikeStriker("flip", 480);
+    popCount("vak");
   } else {
     angaBig.textContent = "ANUDHRUTHAM";
-    $("handDesc").textContent = "single tap";
+    $("handDesc").textContent = "single tap (venu)";
     countBig.textContent = "👆";
     countBig.className = "hand-count pop";
     setTimeout(() => countBig.classList.remove("pop"), 140);
-    strikeHand();
+    strikeStriker("tap", 240);
+    popCount("ta");
   }
 }
 
