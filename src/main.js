@@ -243,9 +243,9 @@ function renderTala(activeIdx) {
     el.classList.toggle("done", i < activeIdx && playing);
   });
   const cur = tala.aksharas[activeIdx];
-  const gesture = cur.indexInAnga === 0
-    ? (cur.anga === "L" ? "clap" : cur.anga === "D" ? "wave" : "tap")
-    : (cur.anga === "L" ? "count " + (cur.indexInAnga + 1) : "hold");
+  const gesture = cur.anga === "L"
+    ? (cur.indexInAnga === 0 ? "clap" : "count " + (cur.indexInAnga + 1))
+    : cur.anga === "D" ? "wave" : "tap";
   $("position").textContent = `akshara ${activeIdx + 1} / ${tala.total} — ${gesture}`;
   animateHand(gesture, activeIdx);
 }
