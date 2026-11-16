@@ -154,10 +154,11 @@ function schedulerLoop() {
    (little -> ring -> middle -> index), and the palm flips for the drutham. */
 
 const FINGERS = [
-  { root: "PinkyRoot",  tip: "PinkyF_tip",  max: 1.35 }, // the little folds first
-  { root: "RingRoot",   tip: "RingF_tip",   max: 1.3 },
-  { root: "MiddleRoot", tip: "MiddleF_tip", max: 1.25 },
-  { root: "IndexRoot",  tip: "IndexF_tip",  max: 1.2 },
+  // each finger curls at its real joints (root -> lower -> middle -> tip)
+  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 1.5 },
+  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.45 },
+  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.4 },
+  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.35 },
 ];
 
 const hand3d = {
@@ -243,11 +244,17 @@ function initHand3D(host) {
 
       // camera: overhead like standing over the table, framed on the bounding sphere
       const fitCamera = () => {
-        const look = at("HandMain").clone().multiplyScalar(0.35); // lean toward the wrist
-        const Rb = Math.max(...cloud.map((n) => at(n).sub(look).length()));
+        // frame above the knuckles so the wrist runs off the bottom edge —
+        // unmistakably your own arm seen from above, not a floating palm
+        const tips = ["IndexF_tip", "MiddleF_tip", "RingF_tip", "PinkyF_tip"]
+          .map((n) => at(n));
+        const tipMean = tips.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / tips.length);
+        const look = tipMean.clone().multiplyScalar(0.35);
+        // frame is sized to the fingertips only — the wrist drops off the bottom edge
+        const Rtips = Math.max(...tips.map((v) => v.clone().sub(look).length()));
         const dir = new THREE.Vector3(0, 3.0, 0.95).normalize(); // nearly straight down, like looking at your palm on the table
-        const dist = Rb / (0.95 * Math.tan(Math.PI / 12));
-        hand3d.cam.position.copy(look.clone().add(dir.multiplyScalar(dist)));
+        const dist = Rtips / (0.413 * Math.tan(Math.PI / 12));
+        hand3d.cam.position.copy(look.clone().add(dir.clone().multiplyScalar(dist)));
         hand3d.cam.lookAt(look);
         hand3d.cam.updateProjectionMatrix();
       };
@@ -293,22 +300,35 @@ function initHand3D(host) {
         .multiplyScalar(1 / knuckles.length);
 
       for (const f of FINGERS) {
-        const root = model.getObjectByName(f.root);
-        const tip = model.getObjectByName(f.tip);
-        if (!root || !tip) continue;
-        root.updateWorldMatrix(true, false);
-        const qRest = root.quaternion.clone();
-        const rp = root.getWorldPosition(new THREE.Vector3());
-        const tp = tip.getWorldPosition(new THREE.Vector3());
-        const dir = tp.clone().sub(rp).normalize();
-        const inward = palmCenter.clone().sub(tp).normalize();
-        const axisW = new THREE.Vector3().crossVectors(dir, inward).normalize();
-        // sign check: rotating +eps around axisW must pull the tip toward the palm
-        const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
-        const moved = dir.clone().applyQuaternion(eps).multiplyScalar(rp.distanceTo(tp)).add(rp);
-        if (moved.sub(tp).dot(inward) < 0) axisW.negate();
-        const invW = root.getWorldQuaternion(new THREE.Quaternion()).invert();
-        hand3d.fingers.push({ root, qRest, axisL: axisW.applyQuaternion(invW).normalize(), max: f.max, fold: 0, target: 0 });
+        const tipBone = model.getObjectByName(f.tip);
+        if (!tipBone) continue;
+        // every joint of the chain curls around its own knuckle — a real finger curl,
+        // not one stiff stick rotating from the base
+        const joints = [];
+        for (let i = 0; i < f.chain.length; i++) {
+          const bone = model.getObjectByName(f.chain[i]);
+          if (!bone) continue;
+          const childName = f.chain[i + 1] || f.tip + "_end";
+          const child = model.getObjectByName(childName) || tipBone;
+          bone.updateWorldMatrix(true, false);
+          const qRest = bone.quaternion.clone();
+          const bp = bone.getWorldPosition(new THREE.Vector3());
+          const cp = child.getWorldPosition(new THREE.Vector3());
+          const dir = cp.clone().sub(bp).normalize();
+          const inward = palmCenter.clone().sub(cp).normalize();
+          const axisW = new THREE.Vector3().crossVectors(dir, inward).normalize();
+          // sign check: rotating +eps around axisW must pull the child toward the palm
+          const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
+          const moved = dir.clone().applyQuaternion(eps).multiplyScalar(bp.distanceTo(cp)).add(bp);
+          if (moved.sub(cp).dot(inward) < 0) axisW.negate();
+          const invW = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+          joints.push({ bone, qRest, axisL: axisW.applyQuaternion(invW).normalize(), share: 0 });
+        }
+        // the base knuckle carries most of the curl, decreasing along the chain
+        const shares = [0.45, 0.3, 0.2, 0.05].slice(0, joints.length);
+        const sum = shares.reduce((a, b) => a + b, 0);
+        joints.forEach((j, i) => (j.share = shares[i] / sum));
+        hand3d.fingers.push({ joints, max: f.max, fold: 0, target: 0 });
       }
 
       // (orientation baked above via the basis quaternion — right-hand palm view)
@@ -337,7 +357,9 @@ function tickHand() {
   }
   for (const f of h.fingers) {
     f.fold += (f.target - f.fold) * Math.min(1, dt * 13);
-    f.root.quaternion.copy(f.qRest).premultiply(_q.setFromAxisAngle(f.axisL, f.fold * f.max));
+    for (const j of f.joints) {
+      j.bone.quaternion.copy(j.qRest).premultiply(_q.setFromAxisAngle(j.axisL, f.fold * f.max * j.share));
+    }
   }
   h.renderer.render(h.scene, h.cam);
 }
