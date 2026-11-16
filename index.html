@@ -66,14 +66,31 @@
         .hand-anga.flash { color: var(--elec); }
         .hand-desc { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--faint); }
         .hand-svg-wrap { flex-shrink: 0; }
-        .hand-svg-wrap svg { display: block; transform-origin: 50% 90%; transition: transform 0.16s ease; }
-        #handAll.strike { transform: translateY(14px) rotate(-6deg); }
-        #handAll.flipped { transform: rotateY(170deg); }
-        #handFingers .finger {
-            transform-box: fill-box; transform-origin: 50% 100%;
-            transition: transform 0.12s ease;
+        .hand-stage {
+            display: flex; align-items: flex-end; justify-content: center;
+            position: relative; width: 100%; height: 96px;
         }
-        #handFingers .finger.tapping { transform: rotate(26deg) translateY(-3px); }
+        .hand-palm, .hand-striker { font-size: 58px; line-height: 1; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.25)); }
+        .hand-palm {
+            transform: rotate(18deg) scaleX(-1);
+            margin-right: -12px; z-index: 1;
+        }
+        .hand-striker {
+            position: absolute; right: 26%; bottom: 8px;
+            transform-origin: 30% 90%;
+            transition: transform 0.14s cubic-bezier(0.3, 1.4, 0.5, 1);
+            z-index: 2;
+        }
+        .hand-striker.strike { transform: translate(-16px, 30px) rotate(-10deg) scale(0.94); }
+        .hand-striker.flip { transform: translate(-14px, 26px) rotateY(180deg) rotate(10deg) scale(0.94); }
+        .hand-striker.tap { transform: translate(-12px, 20px) rotate(-4deg); }
+        .hand-count-pop {
+            position: absolute; top: -6px; left: 58%;
+            font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 30px;
+            color: #FACC15; opacity: 0; pointer-events: none;
+        }
+        .hand-count-pop.show { animation: countpop 0.5s ease; }
+        @keyframes countpop { 0% { opacity: 0; transform: translateY(8px) scale(0.7); } 25% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-14px) scale(1); } }
         .hand-svg-wrap.g-clap { transform: rotate(-18deg) translateY(-6px); }
         .hand-svg-wrap.g-count { transform: rotate(10deg) translateY(-3px); }
         .hand-svg-wrap.g-wave { transform: translateX(16px) rotate(12deg); }
