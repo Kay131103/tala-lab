@@ -154,11 +154,12 @@ function schedulerLoop() {
    (little -> ring -> middle -> index), and the palm flips for the drutham. */
 
 const FINGERS = [
-  // each finger curls at its real joints (root -> lower -> middle -> tip)
-  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 1.5 },
-  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.45 },
-  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.4 },
-  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.35 },
+  // each finger curls at its real joints (root -> lower -> middle -> tip);
+  // deep enough that the fingertip lands on the palm
+  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 2.1 },
+  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 2.05 },
+  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 2.0 },
+  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.95 },
 ];
 
 const hand3d = {
@@ -324,11 +325,13 @@ function initHand3D(host) {
           const invW = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
           joints.push({ bone, qRest, axisL: axisW.applyQuaternion(invW).normalize(), share: 0 });
         }
-        // the base knuckle carries most of the curl, decreasing along the chain
-        const shares = [0.45, 0.3, 0.2, 0.05].slice(0, joints.length);
+        // the base knuckle carries most of the curl, decreasing along the chain;
+        // each joint lags slightly behind the one before it — a natural base-to-tip cascade
+        const shares = [0.55, 0.28, 0.14, 0.03].slice(0, joints.length);
+        const rates = [15, 11, 8.5, 7].slice(0, joints.length);
         const sum = shares.reduce((a, b) => a + b, 0);
-        joints.forEach((j, i) => (j.share = shares[i] / sum));
-        hand3d.fingers.push({ joints, max: f.max, fold: 0, target: 0 });
+        joints.forEach((j, i) => { j.share = shares[i] / sum; j.rate = rates[i]; j.fold = 0; });
+        hand3d.fingers.push({ joints, max: f.max, target: 0 });
       }
 
       // (orientation baked above via the basis quaternion — right-hand palm view)
@@ -357,9 +360,9 @@ function tickHand() {
     h.armature.rotation.y = -0.12 * Math.sin(h.flip * Math.PI); // slight roll as it turns
   }
   for (const f of h.fingers) {
-    f.fold += (f.target - f.fold) * Math.min(1, dt * 13);
     for (const j of f.joints) {
-      j.bone.quaternion.copy(j.qRest).premultiply(_q.setFromAxisAngle(j.axisL, f.fold * f.max * j.share));
+      j.fold += (f.target - j.fold) * Math.min(1, dt * j.rate);
+      j.bone.quaternion.copy(j.qRest).premultiply(_q.setFromAxisAngle(j.axisL, j.fold * f.max * j.share));
     }
   }
   h.renderer.render(h.scene, h.cam);
