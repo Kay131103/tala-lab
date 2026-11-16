@@ -160,6 +160,8 @@ const FINGERS = [
   { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.45 },
   { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.4 },
   { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.35 },
+  // the thumb folds in as the fifth count (misra & sankeerna jaathis)
+  { chain: ["ThumbRoot", "ThumbMiddle", "ThumbTop"], tip: "ThumbTop", max: 0.9 },
 ];
 
 const hand3d = {
@@ -387,7 +389,10 @@ function unfoldAll() {
 } // open hand, ready to count
 
 function foldFinger(n) {
-  const f = hand3d.fingers[((n - 1) % 4)];
+  // count order: little -> ring -> middle -> index -> thumb, wrapping for
+  // misra (7) and sankeerna (9) jaathis
+  const order = [0, 1, 2, 3, 4];
+  const f = hand3d.fingers[order[(n - 1) % 5]];
   if (!f) return;
   f.target = 1; // the finger folds down onto the palm…
   clearTimeout(f.riseTimer);
