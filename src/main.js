@@ -365,9 +365,16 @@ function tickHand() {
   h.renderer.render(h.scene, h.cam);
 }
 
-function strikeHand3D(power) {
-  hand3d.strikeTarget = power;
-  setTimeout(() => (hand3d.strikeTarget = 0), 150);
+let strikeTicket = 0;
+function strikeHand3D(power, delay = 0) {
+  const ticket = ++strikeTicket;
+  setTimeout(() => {
+    if (ticket !== strikeTicket) return; // a newer gesture took over
+    hand3d.strikeTarget = power;
+    setTimeout(() => {
+      if (ticket === strikeTicket) hand3d.strikeTarget = 0;
+    }, 150);
+  }, delay);
 }
 
 function unfoldAll() { hand3d.fingers.forEach((f) => (f.target = 0)); } // open hand, ready to count
@@ -390,8 +397,15 @@ function animateHand(gesture, aksharaIdx) {
   if (gesture.startsWith("clap")) {
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "strike the palm (thatthu)";
-    hand3d.flipTarget = 0; // the palm turns back up for the new laghu
-    strikeHand3D(1);
+    // if the palm is still turned over, let it turn back up BEFORE the strike lands
+    if (hand3d.flipTarget === 1) {
+      hand3d.flipTarget = 0;
+      strikeTicket++;
+      strikeHand3D(1, 330);
+    } else {
+      strikeTicket++;
+      strikeHand3D(1);
+    }
     setTimeout(unfoldAll, 140); // the hand opens after the strike, ready for the counts
   } else if (gesture.startsWith("count")) {
     angaBig.textContent = "LAGHU";
@@ -405,18 +419,21 @@ function animateHand(gesture, aksharaIdx) {
     if (beat === 0) {
       angaBig.textContent = "DRUTHAM";
       $("handDesc").textContent = "strike (tha)";
-      // if the palm is still turned over from the previous drutham, bring it back as we strike
+      // if the palm is still turned over from the previous drutham, turn back first
       if (hand3d.flipTarget === 1) {
         hand3d.flipTarget = 0;
-        setTimeout(() => strikeHand3D(0.8), 180);
+        strikeTicket++;
+        strikeHand3D(0.8, 330);
       } else {
+        strikeTicket++;
         strikeHand3D(0.8);
       }
     } else {
       angaBig.textContent = "DRUTHAM";
       $("handDesc").textContent = "flip and strike the back (venu)";
       hand3d.flipTarget = 1; // the palm turns over…
-      setTimeout(() => strikeHand3D(0.6), 200); // …and the strike lands as it turns
+      strikeTicket++;
+      strikeHand3D(0.6, 200); // …and the strike lands as it turns
     }
   } else {
     angaBig.textContent = "ANUDHRUTHAM";
