@@ -285,6 +285,10 @@ function initHand3D(host) {
 
       const group = new THREE.Group();
       group.add(model);
+      // mirror view — the way your own right hand appears in a mirror (and in
+      // selfie-style demo videos): palm up, thumb on the left
+      group.scale.set(-1, 1, 1);
+      model.traverse((o) => { if (o.isMesh && o.material) o.material.side = THREE.DoubleSide; });
       scene.add(group);
       hand3d.armature = group;
 
