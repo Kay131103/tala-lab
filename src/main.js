@@ -353,8 +353,8 @@ function tickHand() {
     h.armature.rotation.x = -0.25 * h.strike;
     // the strike presses toward the table; the wave lifts, turns over, settles back down
     h.armature.position.y = -0.12 * h.strike + 0.22 * Math.sin(h.flip * Math.PI);
-    h.armature.rotation.z = Math.PI * 0.95 * h.flip;
-    h.armature.rotation.y = 0.12 * Math.sin(h.flip * Math.PI); // slight roll as it turns
+    h.armature.rotation.z = -Math.PI * 0.95 * h.flip; // turn over, clockwise from above
+    h.armature.rotation.y = -0.12 * Math.sin(h.flip * Math.PI); // slight roll as it turns
   }
   for (const f of h.fingers) {
     f.fold += (f.target - f.fold) * Math.min(1, dt * 13);
@@ -377,11 +377,16 @@ function strikeHand3D(power, delay = 0) {
   }, delay);
 }
 
-function unfoldAll() { hand3d.fingers.forEach((f) => (f.target = 0)); } // open hand, ready to count
+function unfoldAll() {
+  hand3d.fingers.forEach((f) => { clearTimeout(f.riseTimer); f.target = 0; });
+} // open hand, ready to count
 
 function foldFinger(n) {
   const f = hand3d.fingers[((n - 1) % 4)];
-  if (f) f.target = 1; // the finger folds down onto the palm — the classic count
+  if (!f) return;
+  f.target = 1; // the finger folds down onto the palm…
+  clearTimeout(f.riseTimer);
+  f.riseTimer = setTimeout(() => { f.target = 0; }, 260); // …then gets back up
 }
 
 function animateHand(gesture, aksharaIdx) {
