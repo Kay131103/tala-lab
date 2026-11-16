@@ -294,14 +294,9 @@ function initHand3D(host) {
 
       // figure out every finger's curl axis from the rest pose
       model.updateWorldMatrix(true, true);
-      const knuckleNames = ["IndexRoot", "MiddleRoot", "RingRoot", "PinkyRoot"];
-      const knuckles = knuckleNames
-        .map((n) => model.getObjectByName(n))
-        .filter(Boolean)
-        .map((b) => b.getWorldPosition(new THREE.Vector3()));
-      const palmCenter = knuckles
-        .reduce((a, v) => a.add(v), new THREE.Vector3())
-        .multiplyScalar(1 / knuckles.length);
+      // the true palm normal, pointing out of the palm surface
+      const palmN = at("IndexF_tip").sub(at("HandMain"))
+        .cross(at("PinkyF_tip").sub(at("HandMain"))).normalize();
 
       for (const f of FINGERS) {
         const tipBone = model.getObjectByName(f.tip);
@@ -319,12 +314,13 @@ function initHand3D(host) {
           const bp = bone.getWorldPosition(new THREE.Vector3());
           const cp = child.getWorldPosition(new THREE.Vector3());
           const dir = cp.clone().sub(bp).normalize();
-          const inward = palmCenter.clone().sub(cp).normalize();
-          const axisW = new THREE.Vector3().crossVectors(dir, inward).normalize();
-          // sign check: rotating +eps around axisW must pull the child toward the palm
+          // flexion axis: each finger curls straight into the palm, in its own
+          // sagittal plane (never sweeping sideways across the neighbours)
+          const axisW = new THREE.Vector3().crossVectors(palmN, dir).normalize();
+          // sign check: rotating +eps around axisW must dip the child into the palm
           const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
-          const moved = dir.clone().applyQuaternion(eps).multiplyScalar(bp.distanceTo(cp)).add(bp);
-          if (moved.sub(cp).dot(inward) < 0) axisW.negate();
+          const moved = dir.clone().applyQuaternion(eps);
+          if (moved.dot(palmN) > 0) axisW.negate();
           const invW = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
           joints.push({ bone, qRest, axisL: axisW.applyQuaternion(invW).normalize(), share: 0 });
         }
@@ -354,10 +350,11 @@ function tickHand() {
   h.strike += (h.strikeTarget - h.strike) * Math.min(1, dt * 16);
   h.flip += (h.flipTarget - h.flip) * Math.min(1, dt * 11);
   if (h.armature) {
-    h.armature.rotation.x = -0.35 * h.strike;
-    h.armature.position.y = -0.18 * h.strike; // press toward the table
-    h.armature.rotation.z = Math.PI * 0.95 * h.flip; // turn over for the drutham
-    h.armature.rotation.y = 0.3 * h.flip;
+    h.armature.rotation.x = -0.25 * h.strike;
+    // the strike presses toward the table; the wave lifts, turns over, settles back down
+    h.armature.position.y = -0.12 * h.strike + 0.22 * Math.sin(h.flip * Math.PI);
+    h.armature.rotation.z = Math.PI * 0.95 * h.flip;
+    h.armature.rotation.y = 0.12 * Math.sin(h.flip * Math.PI); // slight roll as it turns
   }
   for (const f of h.fingers) {
     f.fold += (f.target - f.fold) * Math.min(1, dt * 13);
@@ -373,7 +370,7 @@ function strikeHand3D(power) {
   setTimeout(() => (hand3d.strikeTarget = 0), 150);
 }
 
-function foldAll() { hand3d.fingers.forEach((f) => (f.target = 1)); }
+function foldAll() { hand3d.fingers.forEach((f) => (f.target = 0.62)); } // relaxed half-curl, ready to count
 
 function liftFinger(n) {
   const f = hand3d.fingers[((n - 1) % 4)];
@@ -395,7 +392,7 @@ function animateHand(gesture, aksharaIdx) {
     $("handDesc").textContent = "strike the palm (thatthu)";
     hand3d.flipTarget = 0; // the palm turns back up for the new laghu
     strikeHand3D(1);
-    foldAll(); // the hand closes to a loose fist, ready to count
+    setTimeout(foldAll, 140); // the fingers settle into the counting curl after the strike
   } else if (gesture.startsWith("count")) {
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "count the fingers on the palm";
