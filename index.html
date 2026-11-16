@@ -54,11 +54,46 @@
 
         .angas { display: flex; gap: 10px; flex-wrap: wrap; }
         .hand-panel {
-            display: flex; justify-content: center; align-items: center;
+            display: flex; align-items: center; gap: 14px;
             background: var(--sand-soft); border: 2px solid var(--ink); border-radius: 12px;
-            padding: 8px; margin-top: 12px; min-height: 100px;
+            padding: 10px 16px; margin-top: 12px; min-height: 118px;
         }
-        .hand-panel svg { display: block; }
+        .hand-left { display: flex; flex-direction: column; gap: 4px; min-width: 8rem; }
+        .hand-anga {
+            font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 22px;
+            color: var(--ink); letter-spacing: 0.03em; transition: color 0.1s;
+        }
+        .hand-anga.flash { color: var(--elec); }
+        .hand-desc { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--faint); }
+        .hand-svg-wrap { flex-shrink: 0; }
+        .hand-svg-wrap svg { display: block; transition: transform 0.12s ease; transform-origin: 50% 85%; }
+        .hand-svg-wrap.g-clap { transform: rotate(-18deg) translateY(-6px); }
+        .hand-svg-wrap.g-count { transform: rotate(10deg) translateY(-3px); }
+        .hand-svg-wrap.g-wave { transform: translateX(16px) rotate(12deg); }
+        .hand-svg-wrap.g-tap { transform: translateY(-8px); }
+        .hand-count {
+            font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 46px;
+            color: var(--elec); min-width: 3.2rem; text-align: center; line-height: 1;
+            transition: transform 0.08s;
+        }
+        .hand-count.pop { transform: scale(1.25); }
+        .hand-count.wave { color: var(--butter-dark); font-size: 30px; }
+        .hand-count.clap { color: var(--coral); font-size: 26px; }
+
+        @media (max-width: 640px) {
+            body { padding: 18px 10px 50px; }
+            .panel { padding: 14px; }
+            .lab { gap: 12px; margin-top: 18px; }
+            .hero h1 { font-size: 27px; }
+            .hand-panel { padding: 8px 10px; min-height: 100px; gap: 10px; }
+            .hand-anga { font-size: 17px; }
+            .hand-svg-wrap svg { width: 84px; height: 66px; }
+            .hand-count { font-size: 34px; min-width: 2.4rem; }
+            .akshara { width: 27px; height: 27px; font-size: 10.5px; }
+            .anga { padding: 8px 9px; min-width: 60px; }
+            .tala-name { font-size: 18px; }
+            .beat-group { flex-wrap: wrap; }
+        }
         .anga { border: 2px solid var(--ink); border-radius: 12px; padding: 10px 12px; background: var(--paper); min-width: 74px; box-shadow: 3px 3px 0 var(--ink); }
         .anga-l { background: var(--elec-soft); }
         .anga-d { background: var(--butter); }
@@ -147,7 +182,14 @@
                     <div class="tala-sub">the angas: clap + finger counts (laghu), wave (drutham), tap (anudhrutham)</div>
                     <div id="position"></div>
                     <div class="angas" id="angas"></div>
-                <div class="hand-panel" id="handAnim" aria-label="hand gesture animation"></div>
+                <div class="hand-panel" id="handAnim" aria-label="the tala shown with hand gestures">
+                    <div class="hand-left">
+                        <div class="hand-anga" id="angaBig">&mdash;</div>
+                        <div class="hand-desc" id="handDesc">press start</div>
+                    </div>
+                    <div class="hand-svg-wrap" id="handSvgWrap"></div>
+                    <div class="hand-count" id="countBig">&nbsp;</div>
+                </div>
                 </div>
                 <div class="panel">
                     <h3>HOW THE GESTURES MAP</h3>

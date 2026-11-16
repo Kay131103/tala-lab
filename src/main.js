@@ -138,59 +138,80 @@ function schedulerLoop() {
 
 
 
-/* ---------------- hand animation ---------------- */
+/* ---------------- hand animation (the tala, shown) ---------------- */
 const HAND_SVG = `
-<svg viewBox="0 0 120 90" width="120" height="90">
+<svg viewBox="0 0 120 96" width="118" height="94">
   <g id="handPalm">
-    <path d="M45 70 Q40 45 44 30 Q47 22 52 22 Q57 22 57 30 L58 42 Q60 30 64 30 Q69 30 68 40 L67 44
-             Q70 34 74 34 Q79 34 78 43 L77 47 Q80 40 84 40 Q88 40 87 48 L84 62 Q80 76 66 78 Q52 80 45 70 Z"
+    <path d="M46 72 Q40 46 44 30 Q47 21 52 21 Q57 21 57 29 L58 42 Q60 29 64 29 Q69 29 68 39 L67 44
+             Q70 33 74 33 Q79 33 78 42 L77 47 Q80 39 84 39 Q88 39 87 47 L84 62 Q80 78 66 80 Q52 82 46 72 Z"
           fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4" stroke-linejoin="round"/>
-    <path d="M45 70 Q40 45 44 30" fill="none" stroke="#d99a5b" stroke-width="1.6"/>
+    <path d="M46 72 Q40 46 44 30" fill="none" stroke="#d99a5b" stroke-width="1.6"/>
   </g>
   <g id="handRipple"></g>
 </svg>`;
 
+let lastGestureShown = "";
+let lastAngaShown = "";
+
 function buildHandPanel() {
-  const host = $("handAnim");
-  if (!host || host.dataset.built) return;
+  const host = $("handSvgWrap");
+  if (host.dataset.built) return;
   host.innerHTML = HAND_SVG;
   host.dataset.built = "1";
 }
 
-let lastGesture = "";
 function animateHand(gesture, aksharaIdx) {
-  const host = $("handAnim");
+  const host = $("handSvgWrap");
   if (!host) return;
   buildHandPanel();
   const palm = document.getElementById("handPalm");
   if (!palm) return;
-  if (gesture === lastGesture) return;
-  lastGesture = gesture;
+  if (gesture === lastGestureShown) return;
+  lastGestureShown = gesture;
 
+  const wrap = host;
+  const countBig = $("countBig");
+  const angaBig = $("angaBig");
   const ripple = document.getElementById("handRipple");
-  palm.style.transformOrigin = "50% 80%";
 
-  if (gesture === "clap") {
-    palm.style.transition = "transform 0.1s";
-    palm.style.transform = "rotate(-25deg) translateX(-8px)";
-    setTimeout(() => { palm.style.transform = "rotate(0deg) translateX(0px)"; }, 90);
-    ripple.innerHTML = '<circle cx="30" cy="55" r="14" fill="none" stroke="var(--elec)" stroke-width="2.5"><animate attributeName="r" from="6" to="22" dur="0.35s" fill="freeze"/><animate attributeName="opacity" from="0.9" to="0" dur="0.35s" fill="freeze"/></circle>';
-  } else if (gesture === "count") {
-    palm.style.transition = "transform 0.12s";
-    palm.style.transform = "rotate(8deg)";
-    setTimeout(() => { palm.style.transform = "rotate(0deg)"; }, 100);
+  // gesture classes on the wrap: clap / count / wave / tap
+  wrap.className = "hand-svg-wrap g-" + (gesture.startsWith("clap") ? "clap"
+    : gesture.startsWith("count") ? "count"
+    : gesture.startsWith("wave") ? "wave" : "tap");
+
+  if (gesture.startsWith("clap")) {
+    angaBig.textContent = "LAGHU";
+    angaBig.classList.add("flash");
+    setTimeout(() => angaBig.classList.remove("flash"), 250);
+    $("handDesc").textContent = "clap (thalam)";
+    countBig.textContent = "👏";
+    countBig.className = "hand-count clap pop";
+    setTimeout(() => countBig.classList.remove("pop"), 140);
+    ripple.innerHTML = '<circle cx="28" cy="52" r="8" fill="none" stroke="var(--elec)" stroke-width="2.5"><animate attributeName="r" from="8" to="24" dur="0.4s" fill="freeze"/><animate attributeName="opacity" from="0.9" to="0" dur="0.4s" fill="freeze"/></circle>';
+  } else if (gesture.startsWith("count")) {
+    const num = gesture.split(" ")[1];
+    angaBig.textContent = "LAGHU";
+    $("handDesc").textContent = "finger count";
+    countBig.textContent = num;
+    countBig.className = "hand-count pop";
+    setTimeout(() => countBig.classList.remove("pop"), 160);
     ripple.innerHTML = "";
-  } else if (gesture === "wave") {
-    palm.style.transition = "transform 0.14s";
-    palm.style.transform = "translateX(14px) rotate(14deg)";
-    setTimeout(() => { palm.style.transform = "translateX(2px) rotate(4deg)"; }, 120);
-    ripple.innerHTML = '<path d="M20 50 Q30 40 40 50" fill="none" stroke="var(--butter-dark)" stroke-width="3"><animate attributeName="d" from="M20 50 Q30 36 40 50" to="M20 56 Q30 64 40 56" dur="0.4s" repeatCount="1"/></path>';
+  } else if (gesture.startsWith("wave")) {
+    angaBig.textContent = "DRUTHAM";
+    angaBig.classList.add("flash");
+    setTimeout(() => angaBig.classList.remove("flash"), 250);
+    $("handDesc").textContent = "wave (venu)";
+    countBig.textContent = "👋";
+    countBig.className = "hand-count wave pop";
+    setTimeout(() => countBig.classList.remove("pop"), 160);
+    ripple.innerHTML = '<path d="M14 46 Q30 30 46 46" fill="none" stroke="var(--butter-dark)" stroke-width="3"><animate attributeName="d" from="M14 42 Q30 26 46 42" to="M14 52 Q30 60 46 52" dur="0.45s" fill="freeze"/></path>';
   } else {
-    // tap
-    palm.style.transition = "transform 0.09s";
-    palm.style.transform = "translateY(-6px)";
-    setTimeout(() => { palm.style.transform = "translateY(0px)"; }, 80);
-    ripple.innerHTML = '<circle cx="60" cy="80" r="10" fill="none" stroke="var(--sage)" stroke-width="2.5"><animate attributeName="r" from="4" to="16" dur="0.3s" fill="freeze"/><animate attributeName="opacity" from="0.8" to="0" dur="0.3s" fill="freeze"/></circle>';
+    angaBig.textContent = "ANUDHRUTHAM";
+    $("handDesc").textContent = "tap (venu)";
+    countBig.textContent = "👆";
+    countBig.className = "hand-count pop";
+    setTimeout(() => countBig.classList.remove("pop"), 140);
+    ripple.innerHTML = '<circle cx="60" cy="84" r="8" fill="none" stroke="var(--sage)" stroke-width="2.5"><animate attributeName="r" from="4" to="18" dur="0.35s" fill="freeze"/><animate attributeName="opacity" from="0.8" to="0" dur="0.35s" fill="freeze"/></circle>';
   }
 }
 
