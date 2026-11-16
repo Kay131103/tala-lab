@@ -370,11 +370,11 @@ function strikeHand3D(power) {
   setTimeout(() => (hand3d.strikeTarget = 0), 150);
 }
 
-function foldAll() { hand3d.fingers.forEach((f) => (f.target = 0.62)); } // relaxed half-curl, ready to count
+function unfoldAll() { hand3d.fingers.forEach((f) => (f.target = 0)); } // open hand, ready to count
 
-function liftFinger(n) {
+function foldFinger(n) {
   const f = hand3d.fingers[((n - 1) % 4)];
-  if (f) f.target = 0;
+  if (f) f.target = 1; // the finger folds down onto the palm — the classic count
 }
 
 function animateHand(gesture, aksharaIdx) {
@@ -392,13 +392,13 @@ function animateHand(gesture, aksharaIdx) {
     $("handDesc").textContent = "strike the palm (thatthu)";
     hand3d.flipTarget = 0; // the palm turns back up for the new laghu
     strikeHand3D(1);
-    setTimeout(foldAll, 140); // the fingers settle into the counting curl after the strike
+    setTimeout(unfoldAll, 140); // the hand opens after the strike, ready for the counts
   } else if (gesture.startsWith("count")) {
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "count the fingers on the palm";
-    // the count order: the little lifts first, then the ring, then the middle
+    // the count order: the little folds first, then the ring, then the middle
     const posInAnga = tala.aksharas[aksharaIdx % tala.total].indexInAnga;
-    liftFinger(posInAnga);
+    foldFinger(posInAnga);
   } else if (gesture.startsWith("wave")) {
     // drutham is two movements: first a strike (tha), then flip and strike the back (venu)
     const beat = tala.aksharas[aksharaIdx % tala.total].indexInAnga; // 0 or 1
