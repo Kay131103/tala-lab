@@ -300,6 +300,11 @@ function initHand3D(host) {
       // the true palm normal, pointing out of the palm surface
       const palmN = at("IndexF_tip").sub(at("HandMain"))
         .cross(at("PinkyF_tip").sub(at("HandMain"))).normalize();
+      // palm centre (knuckle line) — the thumb folds across toward it
+      const palmCenter = ["IndexRoot", "MiddleRoot", "RingRoot", "PinkyRoot"]
+        .map((n) => at(n))
+        .reduce((a, v) => a.add(v), new THREE.Vector3())
+        .multiplyScalar(1 / 4);
 
       for (const f of FINGERS) {
         const tipBone = model.getObjectByName(f.tip);
@@ -317,24 +322,39 @@ function initHand3D(host) {
           const bp = bone.getWorldPosition(new THREE.Vector3());
           const cp = child.getWorldPosition(new THREE.Vector3());
           const dir = cp.clone().sub(bp).normalize();
-          // flexion axis: each finger curls straight into the palm, in its own
-          // sagittal plane (never sweeping sideways across the neighbours)
-          const axisW = new THREE.Vector3().crossVectors(palmN, dir).normalize();
-          // sign check: rotating +eps around axisW must dip the child into the palm
-          const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
-          const moved = dir.clone().applyQuaternion(eps);
-          if (moved.dot(palmN) > 0) axisW.negate();
+          let axisW;
+          let isThumbJoint = false;
+          if (f.tip === "ThumbTop") {
+            // the thumb sweeps across the palm toward its centre (opposition):
+            // the rotation axis is the palm normal, so the thumb stays ON the
+            // palm surface; the sign is probed per joint toward the palm centre
+            const inward = palmCenter.clone().sub(cp).normalize();
+            axisW = palmN.clone();
+            const probeT = new THREE.Vector3().crossVectors(axisW, dir);
+            if (probeT.dot(inward) < 0) axisW.negate();
+            isThumbJoint = true;
+          } else {
+            // flexion axis: each finger curls straight into the palm, in its own
+            // sagittal plane (never sweeping sideways across the neighbours)
+            axisW = new THREE.Vector3().crossVectors(palmN, dir).normalize();
+            // sign check: rotating +eps around axisW must dip the child into the palm
+            const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
+            const moved = dir.clone().applyQuaternion(eps);
+            if (moved.dot(palmN) > 0) axisW.negate();
+          }
           const invW = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
-          joints.push({ bone, qRest, axisL: axisW.applyQuaternion(invW).normalize(), share: 0 });
+          joints.push({ bone, qRest, axisL: axisW.applyQuaternion(invW).normalize(), share: 0, worldAxis: axisW.clone(), segDir: dir.clone(), thumb: isThumbJoint });
         }
         // the base knuckle carries most of the curl, decreasing along the chain;
         // each joint lags slightly behind the one before it — a natural base-to-tip cascade
         // curl at the real knuckles: the root pivot barely moves (it sits at the
         // palm base), the knuckle and middle joints lead, the tip curls in
-        const shares = [0.15, 0.35, 0.35, 0.15].slice(0, joints.length);
+        const isThumb = f.tip === "ThumbTop";
+        const shares = (isThumb ? [0.7, 0.2, 0.1] : [0.15, 0.35, 0.35, 0.15]).slice(0, joints.length);
         const rates = [15, 11, 8.5, 7].slice(0, joints.length);
         const sum = shares.reduce((a, b) => a + b, 0);
         joints.forEach((j, i) => { j.share = shares[i] / sum; j.rate = rates[i]; j.fold = 0; });
+
         hand3d.fingers.push({ joints, max: f.max, target: 0 });
       }
 
