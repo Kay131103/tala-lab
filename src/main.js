@@ -154,12 +154,12 @@ function schedulerLoop() {
    (little -> ring -> middle -> index), and the palm flips for the drutham. */
 
 const FINGERS = [
-  // each finger curls at its real joints (root -> lower -> middle -> tip);
-  // deep enough to rest on the palm, shallow enough to not clip through it
-  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 1.8 },
-  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.7 },
-  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.65 },
-  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.55 },
+  // each finger curls at its real knuckles — the root barely moves (it sits at
+  // the palm base), the knuckle and middle joints lead, the tip curls in
+  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 1.5 },
+  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.45 },
+  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.4 },
+  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.35 },
 ];
 
 const hand3d = {
@@ -327,7 +327,9 @@ function initHand3D(host) {
         }
         // the base knuckle carries most of the curl, decreasing along the chain;
         // each joint lags slightly behind the one before it — a natural base-to-tip cascade
-        const shares = [0.55, 0.28, 0.14, 0.03].slice(0, joints.length);
+        // curl at the real knuckles: the root pivot barely moves (it sits at the
+        // palm base), the knuckle and middle joints lead, the tip curls in
+        const shares = [0.15, 0.35, 0.35, 0.15].slice(0, joints.length);
         const rates = [15, 11, 8.5, 7].slice(0, joints.length);
         const sum = shares.reduce((a, b) => a + b, 0);
         joints.forEach((j, i) => { j.share = shares[i] / sum; j.rate = rates[i]; j.fold = 0; });
