@@ -155,11 +155,11 @@ function schedulerLoop() {
 
 const FINGERS = [
   // each finger curls at its real joints (root -> lower -> middle -> tip);
-  // deep enough that the fingertip lands on the palm
-  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 2.1 },
-  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 2.05 },
-  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 2.0 },
-  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.95 },
+  // deep enough to rest on the palm, shallow enough to not clip through it
+  { chain: ["PinkyRoot", "PinkyF_lower", "PinkyF_middle", "PinkyF_tip"], tip: "PinkyF_tip",  max: 1.8 },
+  { chain: ["RingRoot", "RingF_lower", "RingF_middle", "RingF_tip"],    tip: "RingF_tip",   max: 1.7 },
+  { chain: ["MiddleRoot", "MiddleF_lower", "MiddleF_middle", "MiddleF_tip"], tip: "MiddleF_tip", max: 1.65 },
+  { chain: ["IndexRoot", "IndexF_lower", "IndexF_middle", "IndexF_tip"], tip: "IndexF_tip",  max: 1.55 },
 ];
 
 const hand3d = {
@@ -389,7 +389,7 @@ function foldFinger(n) {
   if (!f) return;
   f.target = 1; // the finger folds down onto the palm…
   clearTimeout(f.riseTimer);
-  f.riseTimer = setTimeout(() => { f.target = 0; }, 260); // …then gets back up
+  f.riseTimer = setTimeout(() => { f.target = 0; }, 300); // …then gets back up
 }
 
 function animateHand(gesture, aksharaIdx) {
