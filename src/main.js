@@ -175,17 +175,8 @@ function buildHandPanel() {
   const host = $("handSvgWrap");
   if (host.dataset.built) return;
   host.dataset.built = "1";
-  host.innerHTML = `<div class="count-pop" id="countPop"></div><canvas id="handGL"></canvas>`;
+  host.innerHTML = `<canvas id="handGL"></canvas>`;
   initHand3D(host);
-}
-
-function popCount(text) {
-  const pop = $("countPop");
-  if (!pop) return;
-  pop.textContent = text;
-  pop.classList.remove("show");
-  void pop.offsetWidth;
-  pop.classList.add("show");
 }
 
 function initHand3D(host) {
@@ -356,11 +347,11 @@ function strikeHand3D(power) {
   setTimeout(() => (hand3d.strikeTarget = 0), 150);
 }
 
-function unfoldAll() { hand3d.fingers.forEach((f) => (f.target = 0)); }
+function foldAll() { hand3d.fingers.forEach((f) => (f.target = 1)); }
 
-function foldFinger(n) {
+function liftFinger(n) {
   const f = hand3d.fingers[((n - 1) % 4)];
-  if (f) f.target = 1;
+  if (f) f.target = 0;
 }
 
 function animateHand(gesture, aksharaIdx) {
@@ -371,39 +362,26 @@ function animateHand(gesture, aksharaIdx) {
   if (key === lastGestureShown) return;
   lastGestureShown = key;
 
-  const countBig = $("countBig");
   const angaBig = $("angaBig");
 
   if (gesture.startsWith("clap")) {
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "strike the palm (thatthu)";
-    countBig.textContent = "ta";
-    countBig.className = "hand-count clap pop";
-    setTimeout(() => countBig.classList.remove("pop"), 160);
     hand3d.flipTarget = 0; // the palm turns back up for the new laghu
     strikeHand3D(1);
-    popCount("ta");
-    unfoldAll(); // the fingers rise again for the new laghu
+    foldAll(); // the hand closes to a loose fist, ready to count
   } else if (gesture.startsWith("count")) {
-    const num = gesture.split(" ")[1];
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "count the fingers on the palm";
-    countBig.textContent = num;
-    countBig.className = "hand-count pop";
-    setTimeout(() => countBig.classList.remove("pop"), 150);
-    // the count order: the little folds first, then the ring, then the middle
+    // the count order: the little lifts first, then the ring, then the middle
     const posInAnga = tala.aksharas[aksharaIdx % tala.total].indexInAnga;
-    foldFinger(posInAnga);
-    popCount(num);
+    liftFinger(posInAnga);
   } else if (gesture.startsWith("wave")) {
     // drutham is two movements: first a strike (tha), then flip and strike the back (venu)
     const beat = tala.aksharas[aksharaIdx % tala.total].indexInAnga; // 0 or 1
     if (beat === 0) {
       angaBig.textContent = "DRUTHAM";
       $("handDesc").textContent = "strike (tha)";
-      countBig.textContent = "ta";
-      countBig.className = "hand-count clap pop";
-      setTimeout(() => countBig.classList.remove("pop"), 150);
       // if the palm is still turned over from the previous drutham, bring it back as we strike
       if (hand3d.flipTarget === 1) {
         hand3d.flipTarget = 0;
@@ -411,25 +389,16 @@ function animateHand(gesture, aksharaIdx) {
       } else {
         strikeHand3D(0.8);
       }
-      popCount("tha");
     } else {
       angaBig.textContent = "DRUTHAM";
       $("handDesc").textContent = "flip and strike the back (venu)";
-      countBig.textContent = "va";
-      countBig.className = "hand-count wave pop";
-      setTimeout(() => countBig.classList.remove("pop"), 150);
       hand3d.flipTarget = 1; // the palm turns over…
       setTimeout(() => strikeHand3D(0.6), 200); // …and the strike lands as it turns
-      popCount("vak");
     }
   } else {
     angaBig.textContent = "ANUDHRUTHAM";
     $("handDesc").textContent = "single tap (venu)";
-    countBig.textContent = "ta";
-    countBig.className = "hand-count pop";
-    setTimeout(() => countBig.classList.remove("pop"), 140);
     strikeHand3D(0.55);
-    popCount("ta");
   }
 }
 
