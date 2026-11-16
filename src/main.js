@@ -254,7 +254,7 @@ function initHand3D(host) {
       const fitCamera = () => {
         const look = at("HandMain").clone().multiplyScalar(0.35); // lean toward the wrist
         const Rb = Math.max(...cloud.map((n) => at(n).sub(look).length()));
-        const dir = new THREE.Vector3(0, 2.45, 1.25).normalize();
+        const dir = new THREE.Vector3(0, 3.0, 0.95).normalize(); // nearly straight down, like looking at your palm on the table
         const dist = Rb / (0.95 * Math.tan(Math.PI / 12));
         hand3d.cam.position.copy(look.clone().add(dir.multiplyScalar(dist)));
         hand3d.cam.lookAt(look);
