@@ -205,36 +205,6 @@ function strikeStriker(cls, ms) {
   setTimeout(() => striker.classList.remove(cls), ms);
 }
 
-function clearHandAnim() {
-  document.querySelectorAll("#handFingers .finger").forEach((f) => f.classList.remove("tapping"));
-  const all = document.getElementById("handAll");
-  all.classList.remove("strike", "flipped");
-  const ripple = document.getElementById("handRipple");
-  if (ripple) ripple.innerHTML = "";
-}
-
-function strikeHand() {
-  const all = document.getElementById("handAll");
-  all.classList.add("strike");
-  setTimeout(() => all.classList.remove("strike"), 130);
-  const ripple = document.getElementById("handRipple");
-  if (ripple) ripple.innerHTML = '<circle cx="70" cy="110" r="10" fill="none" stroke="var(--elec)" stroke-width="3"><animate attributeName="r" from="10" to="30" dur="0.4s" fill="freeze"/><animate attributeName="opacity" from="0.9" to="0" dur="0.4s" fill="freeze"/></circle>';
-}
-
-function flipHand() {
-  const all = document.getElementById("handAll");
-  all.classList.add("flipped");
-  const ripple = document.getElementById("handRipple");
-  if (ripple) ripple.innerHTML = '<path d="M20 120 Q70 96 120 120" fill="none" stroke="var(--butter-dark)" stroke-width="3"><animate attributeName="d" from="M20 112 Q70 88 120 112" to="M20 128 Q70 140 120 128" dur="0.5s" fill="freeze"/></path>';
-}
-
-function tapFinger(fingerId) {
-  const f = document.querySelector('#handFingers .finger[data-f="' + fingerId + '"]');
-  if (!f) return;
-  f.classList.add("tapping");
-  setTimeout(() => f.classList.remove("tapping"), 180);
-}
-
 function animateHand(gesture, aksharaIdx) {
   const host = $("handSvgWrap");
   if (!host) return;
@@ -242,7 +212,6 @@ function animateHand(gesture, aksharaIdx) {
   if (gesture === lastGestureShown) return;
   lastGestureShown = gesture;
 
-  clearHandAnim();
   const countBig = $("countBig");
   const angaBig = $("angaBig");
 
