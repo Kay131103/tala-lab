@@ -1,4 +1,6 @@
 import { buildTala, FAMILIES, JAATHIS } from "./talas.js";
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -145,60 +147,40 @@ function schedulerLoop() {
    DRUTHAM = strike, then flip the hand and strike the back (the "wave")
    ANUDHRUTHAM = a single strike                                                        */
 
-const STAGE_HTML = `
-<svg viewBox="0 0 220 285" width="200" height="254">
-  <ellipse id="handShadow" cx="112" cy="266" rx="52" ry="9" fill="rgba(0,0,0,0.15)"/>
-  <g id="handPivot">
-    <!-- the forearm -->
-    <path d="M90 276 L88 226 Q88 214 98 212 L128 212 Q138 214 138 226 L138 276 Z"
-          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-    <path d="M92 226 L134 226" fill="none" stroke="#1a1a1a" stroke-width="2"/>
-    <!-- the palm -->
-    <path d="M84 214 Q74 186 80 156 Q88 146 100 144 L128 144 Q142 146 146 158 Q152 186 142 214 Q112 226 84 214 Z"
-          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-    <!-- the knuckle hints -->
-    <path d="M94 152 Q108 146 134 152" fill="none" stroke="#d99a5b" stroke-width="1.6"/>
-    <!-- the fingers (data-f 1 = little ... 4 = index); each folds at its knuckle -->
-    <g id="handFingers">
-      <g class="finger" data-f="1">
-        <path d="M170 152 Q169 116 173 100 Q176 90 182 92 Q188 94 186 116 L184 152 Z"
-              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-        <rect x="174" y="94" width="10" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
-      </g>
-      <g class="finger" data-f="2">
-        <path d="M144 152 Q145 106 148 86 Q151 74 158 76 Q165 78 163 100 L161 152 Z"
-              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-        <rect x="150" y="80" width="11" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
-      </g>
-      <g class="finger" data-f="3">
-        <path d="M118 152 Q119 100 122 76 Q125 64 132 66 Q139 68 137 92 L136 152 Z"
-              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-        <rect x="124" y="70" width="11" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
-      </g>
-      <g class="finger" data-f="4">
-        <path d="M92 152 Q90 108 94 86 Q97 74 104 76 Q111 78 109 100 L108 152 Z"
-              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-        <rect x="98" y="80" width="10" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
-      </g>
-    </g>
-    <!-- the thumb -->
-    <path d="M88 172 Q64 166 58 146 Q55 136 64 134 Q73 132 82 144 L92 156 Z"
-          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
-  </g>
-  <g id="handRipple"></g>
-</svg>`;
+/* ---------------- the hand, in 3D ---------------- */
+/* Rigged model: "Rigged Hand" by J-Toastie (poly.pizza), CC-BY.
+   The tala is performed on the rig's real bones: the wrist dips for the
+   laghu strike, each finger folds onto the palm in counting order
+   (little -> ring -> middle -> index), and the palm flips for the drutham. */
+
+const FINGERS = [
+  { root: "PinkyRoot",  tip: "PinkyF_tip",  max: 1.35 }, // the little folds first
+  { root: "RingRoot",   tip: "RingF_tip",   max: 1.3 },
+  { root: "MiddleRoot", tip: "MiddleF_tip", max: 1.25 },
+  { root: "IndexRoot",  tip: "IndexF_tip",  max: 1.2 },
+];
+
+const hand3d = {
+  ready: false, renderer: null, scene: null, cam: null, clock: null,
+  armature: null, fingers: [],
+  strike: 0, strikeTarget: 0,
+  flip: 0, flipTarget: 0,
+};
 
 let lastGestureShown = "";
+
+window.__hand = hand3d; // tuning/debug handle
 
 function buildHandPanel() {
   const host = $("handSvgWrap");
   if (host.dataset.built) return;
-  host.innerHTML = STAGE_HTML;
   host.dataset.built = "1";
+  host.innerHTML = `<div class="count-pop" id="countPop"></div><canvas id="handGL"></canvas>`;
+  initHand3D(host);
 }
 
 function popCount(text) {
-  const pop = document.getElementById("countPop");
+  const pop = $("countPop");
   if (!pop) return;
   pop.textContent = text;
   pop.classList.remove("show");
@@ -206,30 +188,188 @@ function popCount(text) {
   pop.classList.add("show");
 }
 
-function strikeStriker(cls, ms) {
-  const pivot = document.getElementById("handPivot");
-  if (!pivot) return;
-  pivot.classList.remove("strike", "flip", "tap");
-  void pivot.offsetWidth;
-  pivot.classList.add(cls);
-  setTimeout(() => pivot.classList.remove(cls), ms);
+function initHand3D(host) {
+  const canvas = $("handGL");
+  const W = () => host.clientWidth || 220;
+  const H = () => Math.round(W() * 1.05);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const resize = () => {
+    renderer.setSize(W(), H(), false);
+    hand3d.cam.aspect = W() / H();
+    hand3d.cam.updateProjectionMatrix();
+  };
+
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(30, W() / H(), 0.1, 50);
+  cam.position.set(0, 0.03, 2.75);
+  cam.lookAt(0, 0, 0);
+
+  scene.add(new THREE.HemisphereLight(0xfff2e2, 0x2a2a35, 1.5));
+  const key = new THREE.DirectionalLight(0xffffff, 2.4); key.position.set(1.4, 2.2, 2.6); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x9db8ff, 1.1); rim.position.set(-2.2, 0.8, -1.6); scene.add(rim);
+
+  hand3d.renderer = renderer; hand3d.scene = scene; hand3d.cam = cam;
+  hand3d.clock = new THREE.Clock();
+  resize();
+  new ResizeObserver(resize).observe(host);
+
+  new GLTFLoader().load(
+    "/models/rigged-hand.glb",
+    (gltf) => {
+      const model = gltf.scene;
+      model.updateWorldMatrix(true, true);
+
+      // pose the hand the way the tala is taught: your right palm resting up on
+      // the table in front of you, fingers pointing away, seen from above
+      const at = (n, v = new THREE.Vector3()) => model.getObjectByName(n).getWorldPosition(v);
+      const f = at("IndexF_tip").sub(at("IndexRoot")).normalize();   // along the fingers
+      const backN = at("PinkyF_tip").sub(at("HandMain"))
+        .cross(at("IndexF_tip").sub(at("HandMain"))).normalize();   // out of the back of the hand
+      const s3 = new THREE.Vector3().crossVectors(f, backN).normalize();
+      const s2 = backN.clone().sub(s3.clone().multiplyScalar(backN.dot(s3))).normalize();
+      const s1 = new THREE.Vector3().crossVectors(s2, s3).normalize();
+      const S = new THREE.Matrix4().makeBasis(s1, s2, s3);
+      // source (fingers, back-normal, thumb-side) -> target (away, up, right)
+      const E = new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0)
+      );
+      model.quaternion.setFromRotationMatrix(E.multiply(S.transpose()));
+      // palm up: half-turn about the fingers axis
+      model.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI));
+      model.updateMatrixWorld(true);
+
+      // center the bone cloud on the origin
+      const cloud = ["HandMain", "ThumbTop", "IndexF_tip", "MiddleF_tip", "RingF_tip", "PinkyF_tip"];
+      const recenter = () => {
+        const pts = cloud.map((n) => at(n));
+        const c = pts.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+        model.position.sub(c);
+        model.updateMatrixWorld(true);
+      };
+      recenter();
+
+      // camera: overhead like standing over the table, framed on the bounding sphere
+      const fitCamera = () => {
+        const look = at("HandMain").clone().multiplyScalar(0.35); // lean toward the wrist
+        const Rb = Math.max(...cloud.map((n) => at(n).sub(look).length()));
+        const dir = new THREE.Vector3(0, 2.45, 1.25).normalize();
+        const dist = Rb / (0.95 * Math.tan(Math.PI / 12));
+        hand3d.cam.position.copy(look.clone().add(dir.multiplyScalar(dist)));
+        hand3d.cam.lookAt(look);
+        hand3d.cam.updateProjectionMatrix();
+      };
+      fitCamera();
+
+      // straighten the fan: twist about the vertical until the fingertips sit over the wrist
+      const lean = () => {
+        const w = at("HandMain").clone().project(hand3d.cam).x;
+        const tips = ["IndexF_tip", "MiddleF_tip", "RingF_tip", "PinkyF_tip"]
+          .map((n) => at(n).clone().project(hand3d.cam).x);
+        return (tips.reduce((a, b) => a + b, 0) / 4 - w) * 100;
+      };
+      const probe = 0.15;
+      const qProbe = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), probe);
+      model.quaternion.premultiply(qProbe); model.updateMatrixWorld(true);
+      const d1 = lean();
+      model.quaternion.premultiply(qProbe.clone().invert()); model.updateMatrixWorld(true);
+      const d0 = lean();
+      const rate = (d1 - d0) / probe;
+      if (Math.abs(rate) > 1e-3) {
+        model.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 1, 0), -d0 / rate
+        ));
+      }
+      model.updateMatrixWorld(true);
+      recenter();
+      fitCamera();
+
+      const group = new THREE.Group();
+      group.add(model);
+      scene.add(group);
+      hand3d.armature = group;
+
+      // figure out every finger's curl axis from the rest pose
+      model.updateWorldMatrix(true, true);
+      const knuckleNames = ["IndexRoot", "MiddleRoot", "RingRoot", "PinkyRoot"];
+      const knuckles = knuckleNames
+        .map((n) => model.getObjectByName(n))
+        .filter(Boolean)
+        .map((b) => b.getWorldPosition(new THREE.Vector3()));
+      const palmCenter = knuckles
+        .reduce((a, v) => a.add(v), new THREE.Vector3())
+        .multiplyScalar(1 / knuckles.length);
+
+      for (const f of FINGERS) {
+        const root = model.getObjectByName(f.root);
+        const tip = model.getObjectByName(f.tip);
+        if (!root || !tip) continue;
+        root.updateWorldMatrix(true, false);
+        const qRest = root.quaternion.clone();
+        const rp = root.getWorldPosition(new THREE.Vector3());
+        const tp = tip.getWorldPosition(new THREE.Vector3());
+        const dir = tp.clone().sub(rp).normalize();
+        const inward = palmCenter.clone().sub(tp).normalize();
+        const axisW = new THREE.Vector3().crossVectors(dir, inward).normalize();
+        // sign check: rotating +eps around axisW must pull the tip toward the palm
+        const eps = new THREE.Quaternion().setFromAxisAngle(axisW, 0.2);
+        const moved = dir.clone().applyQuaternion(eps).multiplyScalar(rp.distanceTo(tp)).add(rp);
+        if (moved.sub(tp).dot(inward) < 0) axisW.negate();
+        const invW = root.getWorldQuaternion(new THREE.Quaternion()).invert();
+        hand3d.fingers.push({ root, qRest, axisL: axisW.applyQuaternion(invW).normalize(), max: f.max, fold: 0, target: 0 });
+      }
+
+      // (orientation baked above via the basis quaternion — right-hand palm view)
+      hand3d.ready = true;
+    },
+    undefined,
+    (err) => console.error("hand model failed to load", err)
+  );
+
+  const loop = () => { requestAnimationFrame(loop); tickHand(); };
+  loop();
 }
 
-function unfoldAll() {
-  document.querySelectorAll("#handFingers .finger").forEach((f) => f.classList.remove("folded"));
+const _q = new THREE.Quaternion();
+function tickHand() {
+  const h = hand3d;
+  if (!h.ready) return;
+  const dt = Math.min(h.clock.getDelta(), 0.05);
+  h.strike += (h.strikeTarget - h.strike) * Math.min(1, dt * 16);
+  h.flip += (h.flipTarget - h.flip) * Math.min(1, dt * 11);
+  if (h.armature) {
+    h.armature.rotation.x = -0.35 * h.strike;
+    h.armature.position.y = -0.18 * h.strike; // press toward the table
+    h.armature.rotation.z = Math.PI * 0.95 * h.flip; // turn over for the drutham
+    h.armature.rotation.y = 0.3 * h.flip;
+  }
+  for (const f of h.fingers) {
+    f.fold += (f.target - f.fold) * Math.min(1, dt * 13);
+    f.root.quaternion.copy(f.qRest).premultiply(_q.setFromAxisAngle(f.axisL, f.fold * f.max));
+  }
+  h.renderer.render(h.scene, h.cam);
 }
+
+function strikeHand3D(power) {
+  hand3d.strikeTarget = power;
+  setTimeout(() => (hand3d.strikeTarget = 0), 150);
+}
+
+function unfoldAll() { hand3d.fingers.forEach((f) => (f.target = 0)); }
 
 function foldFinger(n) {
-  const f = document.querySelector('#handFingers .finger[data-f="' + n + '"]');
-  if (f) f.classList.add("folded");
+  const f = hand3d.fingers[((n - 1) % 4)];
+  if (f) f.target = 1;
 }
 
 function animateHand(gesture, aksharaIdx) {
   const host = $("handSvgWrap");
   if (!host) return;
   buildHandPanel();
-  if (gesture === lastGestureShown) return;
-  lastGestureShown = gesture;
+  const key = gesture + ":" + (aksharaIdx % tala.total);
+  if (key === lastGestureShown) return;
+  lastGestureShown = key;
 
   const countBig = $("countBig");
   const angaBig = $("angaBig");
@@ -240,7 +380,8 @@ function animateHand(gesture, aksharaIdx) {
     countBig.textContent = "ta";
     countBig.className = "hand-count clap pop";
     setTimeout(() => countBig.classList.remove("pop"), 160);
-    strikeStriker("strike", 240);
+    hand3d.flipTarget = 0; // the palm turns back up for the new laghu
+    strikeHand3D(1);
     popCount("ta");
     unfoldAll(); // the fingers rise again for the new laghu
   } else if (gesture.startsWith("count")) {
@@ -255,20 +396,39 @@ function animateHand(gesture, aksharaIdx) {
     foldFinger(posInAnga);
     popCount(num);
   } else if (gesture.startsWith("wave")) {
-    angaBig.textContent = "DRUTHAM";
-    $("handDesc").textContent = "flip and strike the back (venu)";
-    countBig.textContent = "va";
-    countBig.className = "hand-count wave pop";
-    setTimeout(() => countBig.classList.remove("pop"), 150);
-    strikeStriker("flip", 500);
-    popCount("vak");
+    // drutham is two movements: first a strike (tha), then flip and strike the back (venu)
+    const beat = tala.aksharas[aksharaIdx % tala.total].indexInAnga; // 0 or 1
+    if (beat === 0) {
+      angaBig.textContent = "DRUTHAM";
+      $("handDesc").textContent = "strike (tha)";
+      countBig.textContent = "ta";
+      countBig.className = "hand-count clap pop";
+      setTimeout(() => countBig.classList.remove("pop"), 150);
+      // if the palm is still turned over from the previous drutham, bring it back as we strike
+      if (hand3d.flipTarget === 1) {
+        hand3d.flipTarget = 0;
+        setTimeout(() => strikeHand3D(0.8), 180);
+      } else {
+        strikeHand3D(0.8);
+      }
+      popCount("tha");
+    } else {
+      angaBig.textContent = "DRUTHAM";
+      $("handDesc").textContent = "flip and strike the back (venu)";
+      countBig.textContent = "va";
+      countBig.className = "hand-count wave pop";
+      setTimeout(() => countBig.classList.remove("pop"), 150);
+      hand3d.flipTarget = 1; // the palm turns over…
+      setTimeout(() => strikeHand3D(0.6), 200); // …and the strike lands as it turns
+      popCount("vak");
+    }
   } else {
     angaBig.textContent = "ANUDHRUTHAM";
     $("handDesc").textContent = "single tap (venu)";
     countBig.textContent = "ta";
     countBig.className = "hand-count pop";
     setTimeout(() => countBig.classList.remove("pop"), 140);
-    strikeStriker("tap", 240);
+    strikeHand3D(0.55);
     popCount("ta");
   }
 }

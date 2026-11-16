@@ -65,27 +65,18 @@
         }
         .hand-anga.flash { color: var(--elec); }
         .hand-desc { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--faint); }
-        .hand-svg-wrap { flex-shrink: 0; }
-        .hand-svg-wrap svg {
-            display: block; width: min(200px, 100%); height: auto; margin: 0 auto;
-            filter: drop-shadow(0 6px 10px rgba(0,0,0,0.25));
+        .hand-svg-wrap { flex-shrink: 0; position: relative; width: 200px; }
+        .hand-svg-wrap canvas {
+            display: block; width: 100%; height: auto; border-radius: 14px;
         }
-        #handPivot {
-            transform-box: view-box; transform-origin: 50% 92%;
-            transition: transform 0.14s cubic-bezier(0.3, 1.5, 0.5, 1);
+        .count-pop {
+            position: absolute; top: 8px; right: 12px;
+            font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 26px;
+            color: #FACC15; opacity: 0; pointer-events: none;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.35);
         }
-        #handPivot.strike { transform: rotate(-30deg) translateY(6px); }
-        #handPivot.flip { transform: scaleX(-1) rotate(-12deg); }
-        #handPivot.tap { transform: rotate(-16deg) translateY(4px); }
-        #handFingers .finger {
-            transform-box: fill-box; transform-origin: 50% 96%;
-            transition: transform 0.16s cubic-bezier(0.35, 1.5, 0.55, 1);
-        }
-        #handFingers .finger.folded { transform: rotate(-66deg); }
-        .hand-svg-wrap.g-clap { transform: rotate(-18deg) translateY(-6px); }
-        .hand-svg-wrap.g-count { transform: rotate(10deg) translateY(-3px); }
-        .hand-svg-wrap.g-wave { transform: translateX(16px) rotate(12deg); }
-        .hand-svg-wrap.g-tap { transform: translateY(-8px); }
+        .count-pop.show { animation: countpop 0.5s ease; }
+        @keyframes countpop { 0% { opacity: 0; transform: translateY(8px) scale(0.7); } 25% { opacity: 1; transform: translateY(0) scale(1.2); } 100% { opacity: 0; transform: translateY(-14px) scale(1); } }
         .hand-count {
             font-family: "Plus Jakarta Sans"; font-weight: 800; font-size: 46px;
             color: var(--elec); min-width: 3.2rem; text-align: center; line-height: 1;
@@ -102,7 +93,7 @@
             .hero h1 { font-size: 27px; }
             .hand-panel { padding: 8px 10px; min-height: 100px; gap: 10px; }
             .hand-anga { font-size: 17px; }
-            .hand-svg-wrap svg { width: 84px; height: 66px; }
+            .hand-svg-wrap { width: 110px; }
             .hand-count { font-size: 34px; min-width: 2.4rem; }
             .akshara { width: 27px; height: 27px; font-size: 10.5px; }
             .anga { padding: 8px 9px; min-width: 60px; }
@@ -146,7 +137,7 @@
             </p>
             <div class="badge-row">
                 <span class="badge blue">all 35 talas</span>
-                <span class="badge sage">0 dependencies</span>
+                <span class="badge sage">real 3D hand</span>
                 <span class="badge butter">tanpura drone built in</span>
             </div>
         </header>
@@ -236,7 +227,7 @@
             </div>
         </div>
 
-        <footer>part of the <a href="https://portfolio.krithiuk.space">krithiuk.space</a> lab · sax lab · autograd · judge · swara lab</footer>
+        <footer>part of the <a href="https://portfolio.krithiuk.space">krithiuk.space</a> lab · sax lab · autograd · judge · swara lab<br>hand model: “Rigged Hand” by <a href="https://poly.pizza/m/BEy8jbxm6A">J-Toastie</a> (CC-BY)</footer>
     </div>
     <script type="module" src="/src/main.js"></script>
 </body>
