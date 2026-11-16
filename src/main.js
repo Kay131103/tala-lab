@@ -19,6 +19,7 @@ let droneMidi = 58; // A#3 — the alto's base
 let nextTickTime = 0;
 let tickIdx = 0; // absolute subdivision index across cycles
 let scheduled = []; // {time, akshara, sub, kind} for the visual loop
+let lastAbs = 0; // persists across frames so the highlight never snaps back
 
 /* ---------------- audio ---------------- */
 function ensureCtx() {
@@ -135,27 +136,80 @@ function schedulerLoop() {
   }
 }
 
+
+
+/* ---------------- hand animation ---------------- */
+const HAND_SVG = `
+<svg viewBox="0 0 120 90" width="120" height="90">
+  <g id="handPalm">
+    <path d="M45 70 Q40 45 44 30 Q47 22 52 22 Q57 22 57 30 L58 42 Q60 30 64 30 Q69 30 68 40 L67 44
+             Q70 34 74 34 Q79 34 78 43 L77 47 Q80 40 84 40 Q88 40 87 48 L84 62 Q80 76 66 78 Q52 80 45 70 Z"
+          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M45 70 Q40 45 44 30" fill="none" stroke="#d99a5b" stroke-width="1.6"/>
+  </g>
+  <g id="handRipple"></g>
+</svg>`;
+
+function buildHandPanel() {
+  const host = $("handAnim");
+  if (!host || host.dataset.built) return;
+  host.innerHTML = HAND_SVG;
+  host.dataset.built = "1";
+}
+
+let lastGesture = "";
+function animateHand(gesture, aksharaIdx) {
+  const host = $("handAnim");
+  if (!host) return;
+  buildHandPanel();
+  const palm = document.getElementById("handPalm");
+  if (!palm) return;
+  if (gesture === lastGesture) return;
+  lastGesture = gesture;
+
+  const ripple = document.getElementById("handRipple");
+  palm.style.transformOrigin = "50% 80%";
+
+  if (gesture === "clap") {
+    palm.style.transition = "transform 0.1s";
+    palm.style.transform = "rotate(-25deg) translateX(-8px)";
+    setTimeout(() => { palm.style.transform = "rotate(0deg) translateX(0px)"; }, 90);
+    ripple.innerHTML = '<circle cx="30" cy="55" r="14" fill="none" stroke="var(--elec)" stroke-width="2.5"><animate attributeName="r" from="6" to="22" dur="0.35s" fill="freeze"/><animate attributeName="opacity" from="0.9" to="0" dur="0.35s" fill="freeze"/></circle>';
+  } else if (gesture === "count") {
+    palm.style.transition = "transform 0.12s";
+    palm.style.transform = "rotate(8deg)";
+    setTimeout(() => { palm.style.transform = "rotate(0deg)"; }, 100);
+    ripple.innerHTML = "";
+  } else if (gesture === "wave") {
+    palm.style.transition = "transform 0.14s";
+    palm.style.transform = "translateX(14px) rotate(14deg)";
+    setTimeout(() => { palm.style.transform = "translateX(2px) rotate(4deg)"; }, 120);
+    ripple.innerHTML = '<path d="M20 50 Q30 40 40 50" fill="none" stroke="var(--butter-dark)" stroke-width="3"><animate attributeName="d" from="M20 50 Q30 36 40 50" to="M20 56 Q30 64 40 56" dur="0.4s" repeatCount="1"/></path>';
+  } else {
+    // tap
+    palm.style.transition = "transform 0.09s";
+    palm.style.transform = "translateY(-6px)";
+    setTimeout(() => { palm.style.transform = "translateY(0px)"; }, 80);
+    ripple.innerHTML = '<circle cx="60" cy="80" r="10" fill="none" stroke="var(--sage)" stroke-width="2.5"><animate attributeName="r" from="4" to="16" dur="0.3s" fill="freeze"/><animate attributeName="opacity" from="0.8" to="0" dur="0.3s" fill="freeze"/></circle>';
+  }
+}
+
 /* ---------------- visualization ---------------- */
 function draw() {
   if (!tala) return;
   const ctxRunning = audioCtx && audioCtx.state === "running";
-  let abs = 0;
-  let cur = null;
   if (playing && ctxRunning) {
     // audio-clock driven: consume the scheduled queue
     const now = audioCtx.currentTime;
-    let currentAbs = null;
     while (scheduled.length && scheduled[0].time <= now) {
-      currentAbs = scheduled.shift();
+      lastAbs = scheduled.shift().absIdx % tala.total;
     }
-    if (currentAbs) cur = currentAbs;
-    abs = cur ? cur.absIdx % tala.total : 0;
   } else if (playing) {
     // suspended (automation / blocked audio): fall back to the performance clock
     const spb = 60 / bpm;
-    abs = Math.floor(((performance.now() / 1000 - playStartPerf) / spb) % tala.total);
+    lastAbs = Math.floor(((performance.now() / 1000 - playStartPerf) / spb) % tala.total);
   }
-  renderTala(abs, cur);
+  renderTala(lastAbs);
 }
 
 let drawId = null;
@@ -164,7 +218,7 @@ function startDraw() {
   drawId = setInterval(draw, 40); // interval, not rAF — keeps ticking in background tabs
 }
 
-function renderTala(activeIdx, currentTick) {
+function renderTala(activeIdx) {
   const row = $("angas");
   if (!row || row.dataset.built !== tala.name) {
     row.innerHTML = "";
@@ -193,6 +247,7 @@ function renderTala(activeIdx, currentTick) {
     ? (cur.anga === "L" ? "clap" : cur.anga === "D" ? "wave" : "tap")
     : (cur.anga === "L" ? "count " + (cur.indexInAnga + 1) : "hold");
   $("position").textContent = `akshara ${activeIdx + 1} / ${tala.total} — ${gesture}`;
+  animateHand(gesture, activeIdx);
 }
 
 /* ---------------- tala selection UI ---------------- */
@@ -201,7 +256,7 @@ function rebuildTala() {
   const row = $("angas");
   row.dataset.built = ""; // force rebuild
   $("talaName").textContent = tala.name + ` — ${tala.total} aksharas`;
-  renderTala(0, null);
+  renderTala(0);
 }
 
 function populate() {
@@ -255,6 +310,7 @@ $("playBtn").addEventListener("click", () => {
   } else {
     playing = false;
     if (schedulerId) { clearInterval(schedulerId); schedulerId = null; }
+    lastAbs = 0;
     $("playBtn").textContent = "▶ start";
     $("playBtn").classList.remove("on");
   }
