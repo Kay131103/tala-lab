@@ -145,40 +145,50 @@ function schedulerLoop() {
    DRUTHAM = strike, then flip the hand and strike the back (the "wave")
    ANUDHRUTHAM = a single strike                                                        */
 
-const HAND_SVG = `
-<svg viewBox="0 0 150 160" width="150" height="160">
-  <g id="handAll">
+const STAGE_HTML = `
+<svg viewBox="0 0 220 285" width="200" height="254">
+  <ellipse id="handShadow" cx="112" cy="266" rx="52" ry="9" fill="rgba(0,0,0,0.15)"/>
+  <g id="handPivot">
+    <!-- the forearm -->
+    <path d="M90 276 L88 226 Q88 214 98 212 L128 212 Q138 214 138 226 L138 276 Z"
+          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+    <path d="M92 226 L134 226" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+    <!-- the palm -->
+    <path d="M84 214 Q74 186 80 156 Q88 146 100 144 L128 144 Q142 146 146 158 Q152 186 142 214 Q112 226 84 214 Z"
+          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+    <!-- the knuckle hints -->
+    <path d="M94 152 Q108 146 134 152" fill="none" stroke="#d99a5b" stroke-width="1.6"/>
+    <!-- the fingers (data-f 1 = little ... 4 = index); each folds at its knuckle -->
     <g id="handFingers">
       <g class="finger" data-f="1">
-        <rect x="14" y="26" width="17" height="52" rx="8.5" fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4"/>
+        <path d="M170 152 Q169 116 173 100 Q176 90 182 92 Q188 94 186 116 L184 152 Z"
+              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+        <rect x="174" y="94" width="10" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
       </g>
       <g class="finger" data-f="2">
-        <rect x="40" y="12" width="19" height="66" rx="9.5" fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4"/>
+        <path d="M144 152 Q145 106 148 86 Q151 74 158 76 Q165 78 163 100 L161 152 Z"
+              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+        <rect x="150" y="80" width="11" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
       </g>
       <g class="finger" data-f="3">
-        <rect x="67" y="6" width="20" height="72" rx="10" fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4"/>
+        <path d="M118 152 Q119 100 122 76 Q125 64 132 66 Q139 68 137 92 L136 152 Z"
+              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+        <rect x="124" y="70" width="11" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
       </g>
       <g class="finger" data-f="4">
-        <rect x="95" y="18" width="18" height="60" rx="9" fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4"/>
+        <path d="M92 152 Q90 108 94 86 Q97 74 104 76 Q111 78 109 100 L108 152 Z"
+              fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
+        <rect x="98" y="80" width="10" height="7" rx="3" fill="#F9E0C7" stroke="#1a1a1a" stroke-width="1.4"/>
       </g>
     </g>
-    <g id="handPalm">
-      <path d="M10 58 Q6 96 32 106 L104 106 Q132 100 128 62 L124 46 L96 40 L70 40 L42 46 L16 46 Z"
-            fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.4" stroke-linejoin="round"/>
-      <path d="M104 66 Q126 62 122 80 Q116 94 96 92" fill="none" stroke="#1a1a1a" stroke-width="2.4"/>
-    </g>
+    <!-- the thumb -->
+    <path d="M88 172 Q64 166 58 146 Q55 136 64 134 Q73 132 82 144 L92 156 Z"
+          fill="#F5C99B" stroke="#1a1a1a" stroke-width="2.5"/>
   </g>
   <g id="handRipple"></g>
 </svg>`;
 
 let lastGestureShown = "";
-
-const STAGE_HTML = `
-  <div class="hand-stage" id="handStage">
-    <div class="hand-palm" id="handBase">🤚</div>
-    <div class="hand-striker" id="handStriker">✋</div>
-    <div class="hand-count-pop" id="countPop"></div>
-  </div>`;
 
 function buildHandPanel() {
   const host = $("handSvgWrap");
@@ -197,12 +207,21 @@ function popCount(text) {
 }
 
 function strikeStriker(cls, ms) {
-  const striker = document.getElementById("handStriker");
-  if (!striker) return;
-  striker.classList.remove("strike", "flip", "tap");
-  void striker.offsetWidth;
-  striker.classList.add(cls);
-  setTimeout(() => striker.classList.remove(cls), ms);
+  const pivot = document.getElementById("handPivot");
+  if (!pivot) return;
+  pivot.classList.remove("strike", "flip", "tap");
+  void pivot.offsetWidth;
+  pivot.classList.add(cls);
+  setTimeout(() => pivot.classList.remove(cls), ms);
+}
+
+function unfoldAll() {
+  document.querySelectorAll("#handFingers .finger").forEach((f) => f.classList.remove("folded"));
+}
+
+function foldFinger(n) {
+  const f = document.querySelector('#handFingers .finger[data-f="' + n + '"]');
+  if (f) f.classList.add("folded");
 }
 
 function animateHand(gesture, aksharaIdx) {
@@ -218,11 +237,12 @@ function animateHand(gesture, aksharaIdx) {
   if (gesture.startsWith("clap")) {
     angaBig.textContent = "LAGHU";
     $("handDesc").textContent = "strike the palm (thatthu)";
-    countBig.textContent = "👏";
+    countBig.textContent = "ta";
     countBig.className = "hand-count clap pop";
-    setTimeout(() => countBig.classList.remove("pop"), 150);
-    strikeStriker("strike", 260);
+    setTimeout(() => countBig.classList.remove("pop"), 160);
+    strikeStriker("strike", 240);
     popCount("ta");
+    unfoldAll(); // the fingers rise again for the new laghu
   } else if (gesture.startsWith("count")) {
     const num = gesture.split(" ")[1];
     angaBig.textContent = "LAGHU";
@@ -230,20 +250,22 @@ function animateHand(gesture, aksharaIdx) {
     countBig.textContent = num;
     countBig.className = "hand-count pop";
     setTimeout(() => countBig.classList.remove("pop"), 150);
-    strikeStriker("tap", 240);
+    // the count order: the little folds first, then the ring, then the middle
+    const posInAnga = tala.aksharas[aksharaIdx % tala.total].indexInAnga;
+    foldFinger(posInAnga);
     popCount(num);
   } else if (gesture.startsWith("wave")) {
     angaBig.textContent = "DRUTHAM";
     $("handDesc").textContent = "flip and strike the back (venu)";
-    countBig.textContent = "👋";
+    countBig.textContent = "va";
     countBig.className = "hand-count wave pop";
-    setTimeout(() => countBig.classList.remove("pop"), 160);
-    strikeStriker("flip", 480);
+    setTimeout(() => countBig.classList.remove("pop"), 150);
+    strikeStriker("flip", 500);
     popCount("vak");
   } else {
     angaBig.textContent = "ANUDHRUTHAM";
     $("handDesc").textContent = "single tap (venu)";
-    countBig.textContent = "👆";
+    countBig.textContent = "ta";
     countBig.className = "hand-count pop";
     setTimeout(() => countBig.classList.remove("pop"), 140);
     strikeStriker("tap", 240);
